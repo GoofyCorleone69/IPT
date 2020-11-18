@@ -1,0 +1,136 @@
+clc
+close 
+clear all
+Cancion = 'CataPUM.wav'
+%% Variables para recortar la canción
+startSec = 01; %Tiempo inicial en segundos
+endSec = 010; %Tiempo final en segundos
+filename = Cancion;
+
+%% Guarda de datos
+[soundData, Fs] = audioread(filename);
+Fs=Fs/10;
+samples = [startSec*Fs,endSec*Fs];
+clear soundData Fs
+[soundData, Fs] = audioread(filename,samples);
+sampleTime = (1:length(soundData))/Fs;
+sampleLength = length(soundData);
+
+%% Separación de el estéreo.
+soundData1 = soundData(1:size(soundData),1);%solo se usa uno de los canales estéreo
+%sound(soundData1, Fs); %Reproducir el recorte
+%% Diseño de filtros
+%disp('Creando filtros...')
+% 
+% fOrder = 6
+% fc= 2500/(Fs/2);
+% 
+% [hfDen, hfNum] = butter(fOrder, fc, 'high');
+% [lfDen, lfNum] = butter(fOrder, fc);
+% 
+% figure(2), grid, freqz(lfDen,lfNum)%bajo
+% figure(3), grid, freqz(hfDen,hfNum)%alto
+% 
+% %% Aplicando filtros
+% HF = filter(hfDen, hfNum, soundData1);%alto
+% Lf = filter(lfDen, lfNum, soundData1);%bajo
+% BF = filter(lfDen, lfNum, HF); %banda
+% 
+% figure(1)
+% subplot(2,2,1)
+% plot(sampleTime, soundData1, sampleTime, BF)
+% 
+% subplot(2,2,2)
+% plot(sampleTime, BF)
+% %% Transformada de Fourier
+% disp('Calculando transformada de Fourier...');
+% sampleLength = length(soundData);
+% 
+% tfa = abs(fft(soundData));%Transformada rápida de Fourier
+% Pa2 = abs(tfa/sampleLength); %espacio bilateral
+% Pa1 = Pa2(1:sampleLength/2+1); %Espacio unilateral
+% Pa1(2:end-1) = 2*Pa1(2:end-1);
+% 
+% tfb = abs(fft(BF)); %fft de la señal original
+% Pb2 = abs(tfb/sampleLength);
+% Pb1 = Pb2(1:sampleLength/2+1);
+% Pb1(2:end-1) = 2*Pb1(2:end-1);
+% 
+% freqDom = Fs*(0:(sampleLength/2))/sampleLength;
+% 
+% subplot(2,2,3) %Gráfica
+% plot(freqDom,Pa1, freqDom,Pb1)
+% subplot(2,2,4)
+% plot(freqDom,Pb1)
+%% Reverb y eco
+
+[hitData, FsHit]=audioread('CataPUM.wav');
+[hitEcoData, FsHitEco] = audioread('CataPUM.wav');
+
+HitTime = (1:length(hitData))/FsHit;
+HitEcoTime = (1:length(hitEcoData))/FsHitEco;
+
+disp('Calculando convulución de canción con golpe...');
+soundReverb = conv(soundData1,hitData);
+disp('calculando convolución de canción con golpe y eco...');
+soundEco = conv(soundData1,hitEcoData);
+
+soundReverbTime = (1:length(soundReverb))/Fs;
+soundEcoTime = (1:length(soundEco))/Fs;
+
+figure
+subplot(2,1,1), plot(soundReverbTime, soundReverb)
+subplot(2,1,2), plot(soundEcoTime, soundEco)
+
+%% Reproducción
+enter = 1;
+while(enter == 1)
+    clc
+    disp('Seleccione una opción')
+    disp('1) Reproduce el sonido sin filtro')
+    disp('2) Reproduce el sonido con reverberación')
+    disp('3) Reproduce con el filtro alto ')
+    disp('4) Reproduce con el filtro band')
+    disp('5) Reproduce con el filtro bajo')
+    disp('6) Reproduce con eco')
+    disp('0) Detiene la repdoucción')
+    disp('other) exit')
+    soundCase = input('opción: ');
+    
+    track = soundData;
+    player = audioplayer(track, Fs);
+    
+    
+    switch (soundCase)
+        case 1
+            track = soundData;
+            player = audioplayer(track,Fs);
+            play(player);
+        case 2
+            track = soundReverb;
+            player = audioplayer(track, Fs);
+            play(player);
+        case 3   
+            track = HF;
+            player = audioplayer(track,Fs);
+            play(player);
+        case 4
+            track = BF;
+            player = audioplayer(track,Fs);
+            play(player);
+        case 5
+            track = LF;
+            player = audioplayer(track,Fs);
+            play(player);
+        case 6
+            track = soundEco;
+            player = audioplayer(track,Fs);
+            play(player);
+        case 0
+            stop(player);
+        otherwise
+            disp('soundCase = other');
+            enter = 0;
+    end
+     audiowrite('Reverberado.wav',soundReverb,4000)
+end
