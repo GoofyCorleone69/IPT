@@ -1,0 +1,209 @@
+ clc
+clear
+close all
+
+v=VideoReader('RayoArco.mp4');
+c=1;
+
+while hasFrame(v)
+     vidFrame = readFrame(v);
+     h=v.CurrentTime;
+     if (h>5.772) && (h<14.314)
+         %drawnow
+         %imshow(vidFrame);
+         a=vidFrame(:,:,1);
+         b(:,c)=a(:);
+         c=c+1 ;
+     elseif h>14.315
+         break
+     end
+end
+save 'rayo1' b;
+
+load rayo1.mat;
+[NF,NC]=size(b);
+ray=[ 15 112 155 240];
+a=reshape(b(:,ray(1)),[640 360]);
+a=a(270:497,:);
+a=a>80;[NFa,NCa]=size(a);
+% % colormap(gray);   %
+% % drawnow           %
+% % imagesc(a);       %
+b=zeros(size(a));
+for i=1:NFa
+    v=a(i,:);
+    if any(v)==1
+        cm=centrom(v);
+        b(i,cm)=1;
+    else
+    end
+    
+end
+% % drawnow     %
+% % imagesc(b)  %
+
+
+cont=1;
+for i=1:NFa
+    for j=1:NCa
+        if b(i,j)==1
+            x(cont)=i;
+            y(cont)=j;
+            cont=cont+1;
+        else
+        end
+    end
+end
+
+
+
+vx=linspace(min(x),max(x),1000); %vx=linspace(min(x),max(x),1000);
+vy=interp1(x,y,vx);
+x=10*vx;
+y=vy;
+posObs=100;
+parfor i=1:length(x)-1
+    x1=x(i); x2=x(i+1); y1=y(i);y2= y(i+1);
+[xm(i),ym(i),ux,uy,dis(i),san(i),l(i)]=puntomedio(x1,y1,x2,y2,posObs);
+end
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % for i=1:length(xm)-1
+% %     figure(1)
+% %     drawnow
+% %     h1=line([y(i) y(i+1)],[x(i) x(i+1)]);hold on
+% %     plot(ym(i),xm(i),'.b','MarkerSize',10);
+% %     axis([0 max(y) 0 max(x)]);
+% %     if rem(i,300)==0
+% %         h2=line([ ym(i) posObs],[ xm(i) 0]);
+% %     else
+% %     end
+% % end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+c=340; %%velocidad del sonido
+t=8*linspace(0,1,10000);  %% tiempo
+T=50e-3;     %%%Período
+
+
+for i=1:length(l)
+    tau=(c*t-dis(i))/l(i);
+    phi(i)=c*T/l(i);
+    B(i)=l(i)^2/(2*dis(i)*c*T);    
+    if san(i)<phi(i)        
+        T1=-phi(i)-san(i);
+        T2=-phi(i)+san(i);
+        T3=phi(i)-san(i);
+        T4=phi(i)+san(i);
+        for k=1:length(tau)
+            if tau(k)<T1
+                p(k)=0;
+            elseif (T1< tau(k) && tau(k)<T2)
+                p(k)=-B(i)*(((tau(k)+san(i)).^2-(phi(i))^2)/san(i));
+            elseif (T2< tau(k) && tau(k)<T3)
+                p(k)=-4*B(i)*tau(k);
+            elseif (T3< tau(k) && tau(k)<T4)
+                p(k)=B(i)*(((tau(k)-san(i)).^2-(phi(i))^2)/san(i));
+            elseif T4< tau(k)
+                p(k)=0;
+            end
+        end
+    else
+        T1=-phi(i)-san(i);
+        T2=-phi(i)+san(i);
+        T3=phi(i)-san(i);
+        T4=phi(i)+san(i);       
+        
+        for k=1:length(tau)
+            if tau(k)<T1
+                p(k)=0;
+            elseif (T1< tau(k) && tau(k)<T2)
+                p(k)=-B(i)*(((tau(k)+san(i)).^2-(phi(i))^2)/san(i));
+            elseif (T2< tau(k) && tau(k)<T3)
+                p(k)=-4*B(i)*tau(k);
+            elseif (T3< tau(k) && tau(k)<T4)
+                p(k)=B(i)*(((tau(k)-san(i)).^2-(phi(i))^2)/san(i));
+            elseif T4< tau(k)
+                p(k)=0;
+            end
+        end
+               
+    end
+%     figure(2)
+%     drawnow
+%     plot(t,p);
+    P(i,:)=p;
+end
+
+P=sum(P);
+P=P./max(P);
+k=1;
+figure(4)
+%sound(P)
+audiowrite('CataPUM.wav',P,4000)
+
+plot(t,P);
+xlabel('t (s)');
+ylabel('Presión normalizada ');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function cm =centrom(v)
+c=0;s=0;
+for k=1:length(v)
+    c=k*v(k)+c;
+    s=v(k)+s;
+end
+cm=round(c/s);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [xm,ym,ux,uy,dis,san,l]=puntomedio(x1,y1,x2,y2,posObs)
+
+l=sqrt((x2-x1).^2+(y2-y1).^2);
+Lm=0.5;
+angulo=atan((x2-x1)/(y2-y1));
+xm=x1+Lm*sin(atan(angulo));
+ym=y1+Lm*cos(atan(angulo));
+
+ux=(x2-x1)/sqrt((x2-x1).^2+(y2-y1).^2);
+uy=(y2-y1)/sqrt((x2-x1).^2+(y2-y1).^2);
+if (y2-y1)>0
+    pend=-(y2-y1)/(x2-x1);
+    b=ym-xm*pend;
+else
+    pend=(y2-y1)/(x2-x1);
+    b=-(ym+xm*pend);
+end
+
+px=[-1.2*xm 1.2*xm];
+for c=1:length(px)
+    py(c)=pend*px(c)+b;
+end
+py=py./sqrt(py(1)^2+py(2)^2);
+dis=sqrt((posObs-xm)^2+ym^2);
+MNormal=sqrt((px(2)-px(1))^2+(py(2)-py(1))^2);
+an=acosd(((posObs-xm)*(px(2)-px(1))+ym*(py(2)-py(1)))/(MNormal*dis));
+if isnan(an)
+    san=0;
+else
+    san=sind(an);
+end
+end
